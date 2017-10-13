@@ -1,0 +1,24 @@
+{
+  "parser": "babel-eslint",
+  "extends": ["airbnb", "prettier"],
+  "env": {
+    "es6": true,
+    "mocha": true,
+    "jasmine": true
+  },
+  "plugins": ["prettier"],
+  "rules": {
+    "jsx-a11y/href-no-hash": "off",
+    "function-paren-newline": "off",
+    "prettier/prettier": [
+      "error",
+      {
+        "singleQuote": true,
+        "trailingComma": "all",
+        "bracketSpacing": true,
+        "jsxBracketSameLine": true,
+        "parser": "flow"
+      }
+    ]
+  }
+}

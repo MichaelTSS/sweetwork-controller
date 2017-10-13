@@ -1,0 +1,34 @@
+{
+  "SVC_CONTROLLER": {
+    "jwt_passphrase": "9waWNDbGllbnQbXlBd2Vzb21lVG=",
+    "jwt_secret": "what-a-great-secret"
+  },
+  "SVC_SCHEDULER": {
+    "host": "http://127.0.0.1",
+    "port": "8081",
+    "passphrase": "bXlBd2Vzb21lVG9waWNDbGllbnQ="
+  },
+  "REDIS": {
+    "host": "127.0.0.1",
+    "port": "6379",
+    "db": 9
+  },
+  "FACEBOOK": {
+    "consumer_key": "consumer_key",
+    "consumer_secret": "consumer_secret"
+  },
+  "TWITTER": {
+    "consumer_key": "consumer_key",
+    "consumer_secret": "consumer_secret"
+  },
+  "MYSQL": {
+    "host": "host",
+    "port": "port",
+    "user": "user",
+    "password": "password",
+    "database": "database"
+  },
+  "AWS": {
+    "autoCreateMode": true
+  }
+}

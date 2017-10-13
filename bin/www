@@ -1,0 +1,63 @@
+#!/usr/bin/env node
+const service = require('../app/');
+const http = require('http');
+const config = require('../app/config');
+
+/*
+* Setting up Winston Logger
+*/
+
+const winston = require('winston');
+
+winston.loggers.add('controller-logger', {
+  transports: [
+    new winston.transports.File({
+      name: 'info-file',
+      filename: 'controller-filelog-info.log',
+      level: 'info',
+    }),
+    new winston.transports.File({
+      name: 'error-file',
+      filename: 'controller-filelog-error.log',
+      level: 'error',
+      handleExceptions: true,
+      humanReadableUnhandledException: true,
+    }),
+  ],
+});
+const logger = require('winston').loggers.get('controller-logger');
+
+/*
+ * Event listener for HTTP server "error" event.
+ */
+
+function onError(error) {
+  if (error.syscall !== 'listen') {
+    throw error;
+  }
+
+  // handle specific listen errors with friendly messages
+  switch (error.code) {
+    case 'EACCES':
+      logger.error('This server requires elevated privileges');
+      process.exit(1);
+      break;
+    case 'EADDRINUSE':
+      logger.error(`Port ${this} is already in use`);
+      process.exit(1);
+      break;
+    default:
+      throw error;
+  }
+}
+
+// crawler Server
+const PORT = config.get('PORT');
+const server = http.createServer(service);
+server.listen(PORT, () => {
+  logger.info(
+    `Controller Service running on port ${server.address()
+      .port} (with NODE_ENV=${process.env.NODE_ENV})`,
+  );
+});
+server.on('error', onError.bind(PORT));
