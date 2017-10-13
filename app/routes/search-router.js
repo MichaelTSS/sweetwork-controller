@@ -16,7 +16,7 @@ const RssManager = require('../models/rss-manager');
 const topicsSvcRpc = new TopicsServiceRpc(
   config.get('SVC_SCHEDULER:host'),
   config.get('SVC_SCHEDULER:port'),
-  config.get('SVC_SCHEDULER:jwt_passphrase'),
+  config.get('SVC_SCHEDULER:passphrase'),
 );
 
 router.post('/', (req, res) => {
@@ -124,8 +124,19 @@ router.post('/', (req, res) => {
           timestampFrom = 0;
         }
         topicsSvcRpc
-          .auth('ApiService')
+          .auth('controller-service')
           .then(() => {
+            console.log(
+              JSON.stringify({
+                id: req.body.id,
+                source: req.body.source,
+                entity: req.body.entity,
+                timestamp_from: timestampFrom,
+                timestamp_to: req.body.timestamp_to,
+                num_results: trimmedPosts.length || 0,
+                ticks: trimmedPosts.map(x => x.created_at_ms),
+              }),
+            );
             topicsSvcRpc
               .updateFeedMeta({
                 id: req.body.id,
@@ -161,7 +172,7 @@ router.post('/', (req, res) => {
         }
         logger.error(`Caught an exception: ${JSON.stringify(error)}`);
         topicsSvcRpc
-          .auth('ApiService')
+          .auth('controller-service')
           .then(() => {
             topicsSvcRpc
               .updateFeedMeta({

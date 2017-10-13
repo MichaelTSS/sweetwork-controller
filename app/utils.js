@@ -26,7 +26,7 @@ const enQueue = (source, topicHash, posts) => {
   const clientIds = Object.keys(topicHash);
   const unixNow = moment().unix();
   clientIds.forEach(clientId => {
-    const queueName = `results_qualifier_${clientId}`;
+    const queueName = `results_queue_${clientId}`;
     const messages = [];
     posts.forEach(post => {
       messages.push({
@@ -45,7 +45,7 @@ const enQueue = (source, topicHash, posts) => {
     // if (process.env.NODE_ENV !== 'dev') {
     logger.info(
       `Pushing ${set[1].length} messages to queue ` +
-        `${process.env.NODE_PREFIX}_${set[0]} for topics ${set[1][0]
+        `${process.env.NODE_PREFIX || 'prefix'}_${set[0]} for topics ${set[1][0]
           .topic_ids}`,
     );
     // FIXME all messages disapear here
