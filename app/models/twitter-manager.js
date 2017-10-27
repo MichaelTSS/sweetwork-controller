@@ -40,19 +40,19 @@ class TwitterManager extends APIManager {
     const that = this;
     return new Promise((resolve, reject) => {
       this.iterator.next(hash => {
-        if (hash.value !== undefined) {
-          logger.info(`Got ${hash.value.username}'s account`);
-          that.accountKey = hash.key;
-          tw = new Twitter({
-            consumer_key: CONSUMER_KEY,
-            consumer_secret: CONSUMER_SECRET,
-            access_token_key: hash.value.access_token_key,
-            access_token_secret: hash.value.access_token_secret,
-          });
-          resolve();
-        } else {
+        if (hash.value === undefined) {
           reject();
+          return;
         }
+        logger.info(`Got ${hash.value.username}'s account`);
+        that.accountKey = hash.key;
+        tw = new Twitter({
+          consumer_key: CONSUMER_KEY,
+          consumer_secret: CONSUMER_SECRET,
+          access_token_key: hash.value.access_token_key,
+          access_token_secret: hash.value.access_token_secret,
+        });
+        resolve();
       });
     });
   }

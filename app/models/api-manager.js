@@ -32,6 +32,17 @@ class APIManager {
     return Promise.reject(new Error('Not implemented'));
   }
   /**
+     * getPostsByUrl - fetches media for a given mediaId
+     *
+     * @param  {string} mandatory, url
+     * @param  {integer} optional, timestampFrom, default = 0
+     * @param  {integer} optional, timestampTo, default = moment().unix()
+     * @return {object} promise, resolving with a list of trimmed medias, rejecting with an error
+     */
+  getPostsByUrl(url, timestampFrom, timestampTo) {
+    return Promise.reject(new Error('Not implemented'));
+  }
+  /**
      * getPostsByIds - fetches author for a given authorId
      *
      * @param  {integer} mandatory, an authorId

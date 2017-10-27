@@ -72,6 +72,9 @@ class GoogleNewsManager extends APIManager {
       })
       .catch(logger.error);
   }
+  getPostsByTag(...params) {
+    return this.getPostsByUrl(...params);
+  }
   getPostsByUrl(q, timestampFrom, timestampTo, enQueuePosts) {
     // const deferred = Q.defer();
     const that = this;

@@ -9,6 +9,7 @@ const RedisClient = require('sweetwork-redis-client');
 const RedisKeys = require('../redis-keys');
 const config = require('../config');
 const utils = require('../utils');
+
 const cli = new RedisClient(
   config.get('REDIS:host'),
   config.get('REDIS:port'),
@@ -68,6 +69,9 @@ class RssManager extends APIManager {
         scomembers: [unixNow, String(unixNow)],
       })
       .catch(logger.error);
+  }
+  getPostsByAuthor(...params) {
+    return this.getPostsByUrl(...params);
   }
   getPostsByUrl(url, timestampFrom, timestampTo, enQueuePosts) {
     const that = this;
