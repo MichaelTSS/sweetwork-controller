@@ -14,19 +14,24 @@
     "db": 9
   },
   "FACEBOOK": {
-    "consumer_key": "consumer_key",
-    "consumer_secret": "consumer_secret"
+    "consumer_key": "130453654379238",
+    "consumer_secret": "78af6dea3b10fad48c4524179d59a34e"
   },
   "TWITTER": {
     "consumer_key": "UwFtLojAL0MPV4juexRCzT8u5",
     "consumer_secret": "iK0N0chEM8yddB2FdleLHEiRGQmGwaeD4D8owDDRne3Cp6vF5K"
   },
   "MYSQL": {
-    "host": "host",
-    "port": "port",
-    "user": "user",
-    "password": "password",
-    "database": "database"
+    "host": "35.189.67.109",
+    "user": "formidableuser",
+    "database": "sweetwork",
+    "password": "myawesomepassword",
+    "charset": "UTF8_GENERAL_CI",
+    "ssl": {
+      "ca": "/Users/michaeltresseras/code/sweetwork/server-ca.pem",
+      "cert": "/Users/michaeltresseras/code/sweetwork/client-cert.pem",
+      "key": "/Users/michaeltresseras/code/sweetwork/client-key.pem"
+    }
   },
   "AWS": {
     "autoCreateMode": true

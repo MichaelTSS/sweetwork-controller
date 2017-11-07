@@ -1,6 +1,8 @@
+const fs = require('fs');
 const moment = require('moment-timezone');
-const config = require('./config');
+const mysql = require('mysql');
 const logger = require('winston').loggers.get('controller-logger');
+const config = require('./config');
 
 const awsConfig = config.get('AWS');
 awsConfig.autoCreateMode = false; // to save up some calls since this case is handled below
@@ -11,7 +13,7 @@ const Iterator = require('sweetwork-utils').CircularSortedSetIterator;
 const RedisKeys = require('./redis-keys');
 
 const ENDPOINT_NAMES = {
-  facebook: ['searchByTag'],
+  facebook: ['searchByTag', 'searchByAuthor'],
   twitter: ['searchByTag', 'searchByAuthor', 'authorById', 'postsByIds'],
   instagram: ['searchByTag', 'searchByAuthor', 'authorById', 'postsByIds'],
   googlenews: ['postsByUrl'],
@@ -139,6 +141,37 @@ const guessWhichClientHasMoreAccounts = (source, endpointName, clientIds) =>
     });
   });
 
+function startConnection() {
+  return new Promise((resolve, reject) => {
+    logger.debug('CONNECTING');
+    const connection = mysql.createConnection({
+      host: config.get('MYSQL:host'),
+      user: config.get('MYSQL:user'),
+      password: config.get('MYSQL:password'),
+      database: config.get('MYSQL:database'),
+      charset: config.get('MYSQL:charset'),
+      ssl: {
+        ca: fs.readFileSync(config.get('MYSQL:ssl:ca')),
+        cert: fs.readFileSync(config.get('MYSQL:ssl:cert')),
+        key: fs.readFileSync(config.get('MYSQL:ssl:key')),
+      },
+    });
+    connection.connect(err => {
+      if (err) {
+        logger.warn('CONNECT FAILED', err.code);
+        resolve(startConnection());
+      } else {
+        logger.debug('CONNECTED');
+        resolve(connection);
+      }
+    });
+    connection.on('error', err => {
+      if (err.fatal) resolve(startConnection());
+      reject(err);
+    });
+  });
+}
+
 module.exports = {
   ENDPOINT_NAMES,
   enQueue,
@@ -147,4 +180,5 @@ module.exports = {
   FetchAuthorError,
   FetchPostsError,
   guessWhichClientHasMoreAccounts,
+  startConnection,
 };

@@ -34,7 +34,7 @@ class FacebookManager extends APIManager {
     this.clientIds = clientIds;
     fb = new Facebook({
       appId: CONSUMER_KEY,
-      appSecret: CONSUMER_SECRET,
+      secret: CONSUMER_SECRET,
     });
   }
   _getAccount() {
@@ -140,31 +140,31 @@ class FacebookManager extends APIManager {
       })
       .catch(logger.error);
   }
-  getPostsByTag(tag, timestampFrom, timestampTo, enQueuePosts) {
-    const that = this;
-    const deferred = Q.defer();
-    return new Promise((resolve, reject) => {
-      that._preFetch('getPostsByTag').then(
-        () => {
-          that._getAccount().then(() => {
-            that
-              ._getPagesTalkingAbout(tag, deferred)
-              .then(data => resolve(data), e => reject(e));
-          });
-        },
-        () => {
-          reject(
-            new FetchSearchError('No more available accounts', that.clientId),
-          );
-        },
-      );
-    });
-  }
+  // getPostsByTag(tag, timestampFrom, timestampTo, enQueuePosts) {
+  //   const that = this;
+  //   const deferred = Q.defer();
+  //   return new Promise((resolve, reject) => {
+  //     that._preFetch('getPostsByTag').then(
+  //       () => {
+  //         that._getAccount().then(() => {
+  //           that
+  //             ._getPagesTalkingAbout(tag, deferred)
+  //             .then(data => resolve(data), e => reject(e));
+  //         });
+  //       },
+  //       () => {
+  //         reject(
+  //           new FetchSearchError('No more available accounts', that.clientId),
+  //         );
+  //       },
+  //     );
+  //   });
+  // }
   getPostsByAuthor(authorId, timestampFrom, timestampTo, enQueuePosts) {
     const that = this;
     // const deferred = Q.defer();
     return new Promise((resolve, reject) => {
-      that._preFetch('getPostsByTag').then(() => {
+      that._preFetch('getPostsByAuthor').then(() => {
         const handle = (err, res) => {
           // Marks a tick each time this source is requested to be crawled
           that._logExternalRequest();

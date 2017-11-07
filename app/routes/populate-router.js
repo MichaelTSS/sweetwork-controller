@@ -1,5 +1,6 @@
 /* eslint-disable new-cap, prefer-destructuring */
 const _ = require('lodash');
+const querystring = require('querystring');
 const router = require('express').Router({ strict: true });
 const logger = require('winston').loggers.get('controller-logger');
 const RedisKeys = require('../redis-keys');
@@ -13,8 +14,8 @@ const cli = new RedisClient(
 );
 const ENDPOINT_NAMES = require('../utils').ENDPOINT_NAMES;
 
-router.get('/', (req, res) => {
-  logger.info(`GET /api/v1/populate ${JSON.stringify(req.query)}`);
+router.get('/', async (req, res) => {
+  logger.info(`GET /api/v1/populate?${querystring(req.query)}`);
   const clientId = req.query.client_id || 1;
   const hashSourcesAccounts = {
     twitter: [
@@ -53,9 +54,9 @@ router.get('/', (req, res) => {
       },
     ],
   };
-  let numAccounts = 0;
-  new Promise(resolve => {
-    const dList = [];
+  try {
+    let numAccounts = 0;
+    const promises = [];
     _.forEach(hashSourcesAccounts, (accountsList, source) => {
       _.forEach(ENDPOINT_NAMES[source], endpointName => {
         const key = RedisKeys.circularSortedSetAccounts(
@@ -65,31 +66,29 @@ router.get('/', (req, res) => {
         );
         const scomembers = [];
         accountsList.forEach(accountHash => {
+          // write account to Redis
           const keyHash = RedisKeys.socialAccountsTokens(
             source,
             accountHash.id,
           );
-          dList.push(cli.hmset({ key: keyHash, hash: accountHash }));
+          promises.push(cli.hmset({ key: keyHash, hash: accountHash }));
           scomembers.push(10, keyHash);
+          numAccounts += 1;
         });
-        numAccounts += 1;
-        dList.push(cli.zadd({ key, scomembers }));
+        // add multiple accounts to circular set at once
+        promises.push(cli.zadd({ key, scomembers }));
       });
     });
-    resolve(dList);
-  }).then(dList => {
-    Promise.all(dList).then(
-      () => {
-        res.status(200).json({
-          success: true,
-          message: `Populated ${numAccounts} accounts`,
-        });
-      },
-      error => {
-        res.status(200).json({ success: false, error });
-      },
-    );
-  });
+    await Promise.all(promises);
+    res.status(200).json({
+      success: true,
+      message: `Populated ${numAccounts} accounts`,
+    });
+  } catch (e) {
+    res
+      .status(200)
+      .json({ success: false, error: e, where: 'caught-exception' });
+  }
 });
 
 module.exports = router;

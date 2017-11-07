@@ -1,19 +1,20 @@
 /* eslint-disable new-cap, no-param-reassign, prefer-destructuring */
 const moment = require('moment-timezone');
 const router = require('express').Router({ strict: true });
+const querystring = require('querystring');
 
 const config = require('../config');
 const enQueue = require('../utils').enQueue;
 const FetchSearchError = require('../utils').FetchSearchError;
 const logger = require('winston').loggers.get('controller-logger');
-const TopicsServiceRpc = require('../connectors/scheduler').TopicsServiceRpc;
+const SchedulerAPI = require('../connectors/scheduler').TopicsServiceRpc;
 const InstagramManager = require('../models/instagram-manager');
 const TwitterManager = require('../models/twitter-manager');
 const FacebookManager = require('../models/facebook-manager');
 const GoogleNewsManager = require('../models/googlenews-manager');
 const RssManager = require('../models/rss-manager');
 // FIXME
-const topicsSvcRpc = new TopicsServiceRpc(
+const schedulerAPI = new SchedulerAPI(
   config.get('SVC_SCHEDULER:host'),
   config.get('SVC_SCHEDULER:port'),
   config.get('SVC_SCHEDULER:passphrase'),
@@ -27,9 +28,7 @@ const SUPPORTED_SOURCES = {
 };
 
 router.post('/', async (req, res) => {
-  logger.info(
-    `Was requested to search posts ${req.body.source}:${req.body.id}`,
-  );
+  logger.info(`POST /api/v1/search?${querystring.encode(req.body)}`);
   // Request defaults
   req.body.timestamp_from = req.body.timestamp_from || 0; // 0 = fetches all the way back
   req.body.timestamp_to = req.body.timestamp_to || moment().unix(); // fetches up until now
@@ -86,8 +85,8 @@ router.post('/', async (req, res) => {
       }),
     );
     try {
-      await topicsSvcRpc.auth('controller-service');
-      await topicsSvcRpc.updateFeedMeta({
+      await schedulerAPI.auth('controller-service');
+      await schedulerAPI.updateFeedMeta({
         id: req.body.id,
         source: req.body.source,
         entity: req.body.entity,
@@ -97,17 +96,13 @@ router.post('/', async (req, res) => {
         ticks: trimmedPosts.map(x => x.created_at_ms),
       });
     } catch (e) {
-      logger.error(
-        `Caught an exception while talking to Scheduler Service: ${JSON.stringify(
-          e,
-        )}`,
-      );
+      logger.error('Caught an exception while talking to Scheduler Service');
+      logger.error(e);
     }
     //
   } catch (error) {
-    logger.error(
-      `Caught an exception while crawling: ${JSON.stringify(error)}`,
-    );
+    logger.error('Caught an exception while crawling');
+    logger.error(error);
     const trimmedPosts = implementationInstance.getTrimmedPostData();
     let timestampFrom = req.body.timestamp_from;
     if (!timestampFrom && trimmedPosts.length > 0) {
@@ -119,7 +114,7 @@ router.post('/', async (req, res) => {
       timestampFrom = 0;
     }
     try {
-      await topicsSvcRpc.auth('controller-service');
+      await schedulerAPI.auth('controller-service');
       const numResults = Array.isArray(trimmedPosts) ? trimmedPosts.length : 0;
       const ticks =
         Array.isArray(trimmedPosts) && trimmedPosts.length
@@ -135,7 +130,7 @@ router.post('/', async (req, res) => {
         ticks,
         error,
       };
-      await topicsSvcRpc.updateFeedMeta(updateParams);
+      await schedulerAPI.updateFeedMeta(updateParams);
     } catch (e) {
       logger.error(
         `Caught an exception while talking to Scheduler Service: ${JSON.stringify(

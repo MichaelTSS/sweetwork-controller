@@ -37,24 +37,21 @@ class TwitterManager extends APIManager {
   }
 
   _getAccount() {
-    const that = this;
-    return new Promise((resolve, reject) => {
+    try {
       this.iterator.next(hash => {
-        if (hash.value === undefined) {
-          reject();
-          return;
-        }
+        if (hash.value === undefined) throw new Error();
         logger.info(`Got ${hash.value.username}'s account`);
-        that.accountKey = hash.key;
+        this.accountKey = hash.key;
         tw = new Twitter({
           consumer_key: CONSUMER_KEY,
           consumer_secret: CONSUMER_SECRET,
           access_token_key: hash.value.access_token_key,
           access_token_secret: hash.value.access_token_secret,
         });
-        resolve();
       });
-    });
+    } catch (e) {
+      throw e;
+    }
   }
   _addTrimmedTweetData(tweets) {
     tweets.forEach(tweet => {
@@ -83,54 +80,40 @@ class TwitterManager extends APIManager {
   getTrimmedPostData() {
     return this.trimmedPosts;
   }
-  _logExternalRequest() {
-    const unixNow = moment().unix();
-    const key = RedisKeys.externalRequestsTicks(
+  async _logExternalRequest() {
+    try {
+      const unixNow = moment().unix();
+      const key = RedisKeys.externalRequestsTicks(
+        'twitter',
+        this.clientId,
+        this.endpointName,
+      );
+      await cli.sadd({ key: RedisKeys.externalRequestsSet(), members: [key] });
+      await cli.zadd({ key, scomembers: [unixNow, String(unixNow)] });
+    } catch (e) {
+      logger.error(e);
+    }
+  }
+  async _preFetch(method) {
+    this.method = method;
+    this.endpointName = this._getEndpointName(method);
+    this.clientId = await utils.guessWhichClientHasMoreAccounts(
       'twitter',
-      this.clientId,
       this.endpointName,
+      this.clientIds,
     );
-    cli
-      .sadd({
-        key: RedisKeys.externalRequestsSet(),
-        members: [key],
-      })
-      .catch(logger.error);
-    cli
-      .zadd({
-        key,
-        scomembers: [unixNow, String(unixNow)],
-      })
-      .catch(logger.error);
+    this.iterator = new Iterator(
+      RedisKeys.circularSortedSetAccounts(
+        'twitter',
+        this.endpointName,
+        this.clientId,
+      ),
+      config.get('REDIS:host'),
+      config.get('REDIS:port'),
+      config.get('REDIS:db'),
+    );
   }
-  _preFetch(method) {
-    const that = this;
-    return new Promise(resolve => {
-      that.method = method;
-      that.endpointName = that._getEndpointName(method);
-      utils
-        .guessWhichClientHasMoreAccounts(
-          'twitter',
-          that.endpointName,
-          that.clientIds,
-        )
-        .then(clientId => {
-          that.clientId = clientId;
-          that.iterator = new Iterator(
-            RedisKeys.circularSortedSetAccounts(
-              'twitter',
-              this.endpointName,
-              this.clientId,
-            ),
-            config.get('REDIS:host'),
-            config.get('REDIS:port'),
-            config.get('REDIS:db'),
-          );
-          resolve();
-        });
-    });
-  }
-  _call(
+  async _call(
     url,
     params,
     timestampFrom,
@@ -141,7 +124,7 @@ class TwitterManager extends APIManager {
   ) {
     const that = this;
     //
-    that._logExternalRequest();
+    await that._logExternalRequest();
     //
     tw.get(url, params, (error, tweets, response) => {
       if (error) {
@@ -153,28 +136,26 @@ class TwitterManager extends APIManager {
               key: that.accountKey,
               ts: response.headers['x-rate-limit-reset'],
             },
-            () => {
-              that._getAccount().then(
-                () => {
-                  that._call(
-                    url,
-                    params,
-                    timestampFrom,
-                    timestampTo,
-                    enQueuePosts,
-                    deferred,
-                    tweetsCb,
-                  );
-                },
-                () => {
-                  deferred.reject(
-                    new FetchSearchError(
-                      'Got an Rate limit, no more available account',
-                      that.clientId,
-                    ),
-                  );
-                },
-              );
+            async () => {
+              try {
+                await that._getAccount();
+                await that._call(
+                  url,
+                  params,
+                  timestampFrom,
+                  timestampTo,
+                  enQueuePosts,
+                  deferred,
+                  tweetsCb,
+                );
+              } catch (e) {
+                deferred.reject(
+                  new FetchSearchError(
+                    'Got an Rate limit, no more available account',
+                    that.clientId,
+                  ),
+                );
+              }
             },
           );
         } else if (error[0] && error[0].code === 32) {
@@ -187,28 +168,26 @@ class TwitterManager extends APIManager {
                 .add(1, 'hour')
                 .unix(),
             },
-            () => {
-              that._getAccount().then(
-                () => {
-                  that._call(
-                    url,
-                    params,
-                    timestampFrom,
-                    timestampTo,
-                    enQueuePosts,
-                    deferred,
-                    tweetsCb,
-                  );
-                },
-                () => {
-                  deferred.reject(
-                    new FetchSearchError(
-                      'Got an Authentication error, no more available account',
-                      that.clientId,
-                    ),
-                  );
-                },
-              );
+            async () => {
+              try {
+                await that._getAccount();
+                await that._call(
+                  url,
+                  params,
+                  timestampFrom,
+                  timestampTo,
+                  enQueuePosts,
+                  deferred,
+                  tweetsCb,
+                );
+              } catch (e) {
+                deferred.reject(
+                  new FetchSearchError(
+                    'Got an Authentication error, no more available account',
+                    that.clientId,
+                  ),
+                );
+              }
             },
           );
         } else {
@@ -283,75 +262,64 @@ class TwitterManager extends APIManager {
     });
     return deferred.promise;
   }
-  getPostsByTag(tag, timestampFrom, timestampTo, enQueuePosts) {
-    const that = this;
-    const deferred = Q.defer();
-    const defaultParams = {
-      count: PAGE_SIZE,
-      result_type: 'recent',
-      q: tag,
-    };
-    const pathUrl = 'search/tweets';
-    return new Promise((resolve, reject) => {
-      that._preFetch('getPostsByTag').then(() => {
-        that._getAccount().then(
-          () => {
-            that
-              ._call(
-                pathUrl,
-                defaultParams,
-                timestampFrom,
-                timestampTo,
-                enQueuePosts,
-                deferred,
-                response => JSON.parse(response.body).statuses,
-              )
-              .then(data => resolve(data), e => reject(e));
-          },
-          () => {
-            // simply nothing in range
-            reject(
-              new FetchSearchError('No more available accounts', that.clientId),
-            );
-          },
-        );
-      });
-    });
+  async getPostsByTag(tag, timestampFrom, timestampTo, enQueuePosts) {
+    try {
+      const deferred = Q.defer();
+      const defaultParams = {
+        count: PAGE_SIZE,
+        result_type: 'recent',
+        q: tag,
+      };
+      const pathUrl = 'search/tweets';
+      await this._preFetch('getPostsByTag'); // FIXME other to await
+      await this._getAccount(); // FIXME other to await
+      const data = await this._call(
+        pathUrl,
+        defaultParams,
+        timestampFrom,
+        timestampTo,
+        enQueuePosts,
+        deferred,
+        response => JSON.parse(response.body).statuses,
+      );
+      return data;
+    } catch (e) {
+      const error = new FetchSearchError(
+        'No more available accounts',
+        this.clientId,
+      );
+      throw error;
+    }
   }
-  getPostsByAuthor(authorId, timestampFrom, timestampTo, enQueuePosts) {
-    const that = this;
-    const deferred = Q.defer();
-    const defaultParams = {
-      count: PAGE_SIZE,
-      user_id: authorId,
-      include_rts: true,
-    };
-    const pathUrl = 'statuses/user_timeline';
-    return new Promise((resolve, reject) => {
-      that._preFetch('getPostsByAuthor').then(() => {
-        that._getAccount().then(
-          () => {
-            that
-              ._call(
-                pathUrl,
-                defaultParams,
-                timestampFrom,
-                timestampTo,
-                enQueuePosts,
-                deferred,
-                response => JSON.parse(response.body),
-              )
-              .then(data => resolve(data), e => reject(e));
-          },
-          () => {
-            // simply nothing in range
-            reject(
-              new FetchSearchError('No more available accounts', that.clientId),
-            );
-          },
-        );
-      });
-    });
+  async getPostsByAuthor(authorId, timestampFrom, timestampTo, enQueuePosts) {
+    try {
+      const deferred = Q.defer();
+      const defaultParams = {
+        count: PAGE_SIZE,
+        user_id: authorId,
+        include_rts: true,
+      };
+      const pathUrl = 'statuses/user_timeline';
+      //
+      await this._preFetch('getPostsByAuthor');
+      await this._getAccount();
+      const data = await this._call(
+        pathUrl,
+        defaultParams,
+        timestampFrom,
+        timestampTo,
+        enQueuePosts,
+        deferred,
+        response => JSON.parse(response.body),
+      );
+      return data;
+    } catch (e) {
+      const error = new FetchSearchError(
+        'No more available accounts',
+        this.clientId,
+      );
+      throw error;
+    }
   }
   getPostsByIds(tweetIds) {
     const that = this;
