@@ -14,9 +14,7 @@
     "prettier": "prettier-eslint --write \"src/**/*.js\" --list-different",
     "precommit": "lint-staged"
   },
-  "maintainers": [
-    "Michel Tresseras <m.tresseras@gmail.com>"
-  ],
+  "maintainers": ["Michel Tresseras <m.tresseras@gmail.com>"],
   "author": "",
   "homepage": "https://github.com/MichaelTSS/sweetwork-controller.git",
   "dependencies": {
@@ -62,9 +60,6 @@
     "supertest": "2.0.x"
   },
   "lint-staged": {
-    "src/**/*.js": [
-      "prettier-eslint --write",
-      "git add"
-    ]
+    "src/**/*.js": ["prettier-eslint --write", "git add"]
   }
 }

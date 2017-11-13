@@ -4,6 +4,7 @@ const router = require('express').Router({ strict: true });
 const querystring = require('querystring');
 
 const config = require('../config');
+const utils = require('../utils');
 const enQueue = require('../utils').enQueue;
 const FetchSearchError = require('../utils').FetchSearchError;
 const logger = require('winston').loggers.get('controller-logger');
@@ -13,7 +14,7 @@ const TwitterManager = require('../models/twitter-manager');
 const FacebookManager = require('../models/facebook-manager');
 const GoogleNewsManager = require('../models/googlenews-manager');
 const RssManager = require('../models/rss-manager');
-// FIXME
+
 const schedulerAPI = new SchedulerAPI(
   config.get('SVC_SCHEDULER:host'),
   config.get('SVC_SCHEDULER:port'),
@@ -41,7 +42,7 @@ router.post('/', async (req, res) => {
     return;
   }
   const SocialNetworkClass = SUPPORTED_SOURCES[source];
-  const implementationInstance = new SocialNetworkClass(clientIds);
+  const instance = new SocialNetworkClass(clientIds);
   const params = [
     req.body.id,
     req.body.timestamp_from,
@@ -50,13 +51,12 @@ router.post('/', async (req, res) => {
   ];
   //
   try {
-    let trimmedPosts = [];
     if (entity === 'result') {
-      res.status(200).json({ success: true });
-      trimmedPosts = await implementationInstance.getPostsByTag(...params);
+      res.status(200).json({ success: true, message: 'Work in Progress' });
+      await instance.getPostsByTag(...params);
     } else if (entity === 'author') {
-      res.status(200).json({ success: true });
-      trimmedPosts = await implementationInstance.getPostsByAuthor(...params);
+      res.status(200).json({ success: true, message: 'Work in Progress' });
+      await instance.getPostsByAuthor(...params);
     } else {
       const error = new FetchSearchError(`Entity ${entity} not supported`);
       res.status(200).json({ success: false, error });
@@ -64,26 +64,21 @@ router.post('/', async (req, res) => {
     }
     // we are doing some work here after all the crawling is done
     logger.info('Successfully finished crawling');
-    let timestampFrom = req.body.timestamp_from;
-    if (!timestampFrom && trimmedPosts.length > 0) {
-      timestampFrom = Math.round(
-        parseInt(trimmedPosts[trimmedPosts.length - 1].created_at_ms, 10) /
-          1000,
-      );
-    } else if (!timestampFrom) {
-      timestampFrom = 0;
-    }
-    logger.info(
-      JSON.stringify({
-        id: req.body.id,
-        source: req.body.source,
-        entity: req.body.entity,
-        timestamp_from: timestampFrom,
-        timestamp_to: req.body.timestamp_to,
-        num_results: trimmedPosts.length || 0,
-        ticks: '[list of timestamps]',
-      }),
+    const timestampFrom = utils.getEarliestTimestamp(
+      req.body.timestamp_from,
+      instance.getTrimmedPostData(),
     );
+    const ticks = utils.getTicks(instance.getTrimmedPostData());
+    // let timestampFrom = req.body.timestamp_from;
+    // if (!timestampFrom && trimmedPosts.length > 0) {
+    //   timestampFrom = Math.round(
+    //     parseInt(trimmedPosts[trimmedPosts.length - 1].created_at_ms, 10) /
+    //       1000,
+    //   );
+    // } else if (!timestampFrom) {
+    //   timestampFrom = 0;
+    // }
+    //
     try {
       await schedulerAPI.auth('controller-service');
       await schedulerAPI.updateFeedMeta({
@@ -92,8 +87,8 @@ router.post('/', async (req, res) => {
         entity: req.body.entity,
         timestamp_from: timestampFrom,
         timestamp_to: req.body.timestamp_to,
-        num_results: trimmedPosts.length || 0,
-        ticks: trimmedPosts.map(x => x.created_at_ms),
+        num_results: ticks.length,
+        ticks,
       });
     } catch (e) {
       logger.error('Caught an exception while talking to Scheduler Service');
@@ -103,33 +98,38 @@ router.post('/', async (req, res) => {
   } catch (error) {
     logger.error('Caught an exception while crawling');
     logger.error(error);
-    const trimmedPosts = implementationInstance.getTrimmedPostData();
-    let timestampFrom = req.body.timestamp_from;
-    if (!timestampFrom && trimmedPosts.length > 0) {
-      timestampFrom = Math.round(
-        parseInt(trimmedPosts[trimmedPosts.length - 1].created_at_ms, 10) /
-          1000,
-      );
-    } else if (!timestampFrom) {
-      timestampFrom = 0;
-    }
+    const timestampFrom = utils.getEarliestTimestamp(
+      req.body.timestamp_from,
+      instance.getTrimmedPostData(),
+    );
+    // const trimmedPosts = instance.getTrimmedPostData();
+    // let timestampFrom = req.body.timestamp_from;
+    // if (!timestampFrom && trimmedPosts.length > 0) {
+    //   timestampFrom = Math.round(
+    //     parseInt(trimmedPosts[trimmedPosts.length - 1].created_at_ms, 10) /
+    //       1000,
+    //   );
+    // } else if (!timestampFrom) {
+    //   timestampFrom = 0;
+    // }
     try {
-      await schedulerAPI.auth('controller-service');
-      const numResults = Array.isArray(trimmedPosts) ? trimmedPosts.length : 0;
-      const ticks =
-        Array.isArray(trimmedPosts) && trimmedPosts.length
-          ? trimmedPosts.map(x => x.created_at_ms)
-          : [];
+      // const numResults = Array.isArray(trimmedPosts) ? trimmedPosts.length : 0;
+      // const ticks =
+      //   Array.isArray(trimmedPosts) && trimmedPosts.length
+      //     ? trimmedPosts.map(x => x.created_at_ms)
+      //     : [];
+      const ticks = utils.getTicks(instance.getTrimmedPostData());
       const updateParams = {
         id: req.body.id,
         source: req.body.source,
         entity: req.body.entity,
         timestamp_from: timestampFrom,
         timestamp_to: req.body.timestamp_to,
-        num_results: numResults,
+        num_results: ticks.length,
         ticks,
         error,
       };
+      await schedulerAPI.auth('controller-service');
       await schedulerAPI.updateFeedMeta(updateParams);
     } catch (e) {
       logger.error(

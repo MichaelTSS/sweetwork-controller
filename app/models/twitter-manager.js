@@ -35,11 +35,15 @@ class TwitterManager extends APIManager {
     this.trimmedPosts = [];
     this.clientIds = clientIds;
   }
-
   _getAccount() {
-    try {
+    return new Promise((resolve, reject) => {
       this.iterator.next(hash => {
-        if (hash.value === undefined) throw new Error();
+        if (hash.value === undefined) {
+          reject(
+            new FetchSearchError('No more available accounts', this.clientId),
+          );
+          return;
+        }
         logger.info(`Got ${hash.value.username}'s account`);
         this.accountKey = hash.key;
         tw = new Twitter({
@@ -48,10 +52,9 @@ class TwitterManager extends APIManager {
           access_token_key: hash.value.access_token_key,
           access_token_secret: hash.value.access_token_secret,
         });
+        resolve();
       });
-    } catch (e) {
-      throw e;
-    }
+    });
   }
   _addTrimmedTweetData(tweets) {
     tweets.forEach(tweet => {

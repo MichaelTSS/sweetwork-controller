@@ -30,16 +30,18 @@ class InstagramManager extends APIManager {
     this.clientIds = clientIds;
   }
   _getAccount() {
-    const that = this;
     return new Promise((resolve, reject) => {
       this.iterator.next(hash => {
-        if (hash.value !== undefined) {
-          logger.info(`Got ${hash.value.username}'s account`);
-          that.accountKey = hash.key;
-          ig.use({ access_token: hash.value.access_token_key });
-          resolve();
+        if (hash.value === undefined) {
+          reject(
+            new FetchSearchError('No more available accounts', this.clientId),
+          );
+          return;
         }
-        reject();
+        logger.info(`Got ${hash.value.username}'s account`);
+        this.accountKey = hash.key;
+        ig.use({ access_token: hash.value.access_token_key });
+        resolve();
       });
     });
   }
@@ -342,7 +344,7 @@ class InstagramManager extends APIManager {
             });
           }
           if (matchingMedias.length === 0) {
-            logger.info(`Found ${that.getTrimmedPostData().length} medias`);
+            // logger.info(`Found ${that.getTrimmedPostData().length} medias`);
             deferred.resolve(that.getTrimmedPostData());
           } else {
             that._addTrimmedMediaData(matchingMedias);

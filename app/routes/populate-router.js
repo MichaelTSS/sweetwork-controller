@@ -1,6 +1,5 @@
 /* eslint-disable new-cap, prefer-destructuring */
 const _ = require('lodash');
-const querystring = require('querystring');
 const router = require('express').Router({ strict: true });
 const logger = require('winston').loggers.get('controller-logger');
 const RedisKeys = require('../redis-keys');
@@ -15,7 +14,7 @@ const cli = new RedisClient(
 const ENDPOINT_NAMES = require('../utils').ENDPOINT_NAMES;
 
 router.get('/', async (req, res) => {
-  logger.info(`GET /api/v1/populate?${querystring(req.query)}`);
+  logger.info('GET /api/v1/populate');
   const clientId = req.query.client_id || 1;
   const hashSourcesAccounts = {
     twitter: [
@@ -47,10 +46,10 @@ router.get('/', async (req, res) => {
     ],
     facebook: [
       {
-        id: '100007669303976',
-        username: 'Erwan Latour',
+        id: '10155284107236443',
+        username: 'Michel Henry',
         access_token:
-          'EAAH4VUqgIoABAAZAZBC80YtGqN3EAcEWkgK2oITsx6FfwQTuGE4MhZBERVt6zmzR5N404fiDepAPBAfuZAM6kQTmhFX5GDzqa342Qyp8Eepd5lJDmwhOAqkpRIURybsdJVZAVOoH0aoBXnsAiS1JmGnJAc5rk6j1ZAAY1JLLKpuAZDZD',
+          'EAAB2pZAu6muYBADKbq9QzQQv1GZCvpM4pZAYX9Qd1Gy2DvANNaT0z7nhj2iY1IfsYWQ6zYEOes5CtC5l0YUeHPh2ZA9pjYLxMYcZB4lcXnHzOGD9tXOYX6ZBIYMiSLZBbzQkHxKmt7IKmh1ruAF8EmyIGoaPX1IR1dCrfZA3aZAZCowwZDZD',
       },
     ],
   };
